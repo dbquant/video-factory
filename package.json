@@ -14,7 +14,8 @@
     "test": "node scripts/check.mjs",
     "check": "node scripts/check.mjs",
     "prices": "node engine/gen.mjs prices",
-    "credits": "node engine/gen.mjs credits"
+    "credits": "node engine/gen.mjs credits",
+    "test:local": "node scripts/check-local.mjs && python scripts/check-alignment.py"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.132.1",

@@ -14,13 +14,13 @@ export function dialogueCheck(file, lines, lang = "en") {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "dlg-"));
   const L = path.join(tmp, "lines.json"), A = path.join(tmp, "align.json");
   fs.writeFileSync(L, JSON.stringify(lines));
-  const r = spawnSync("python", [path.join(ROOT, "engine", "lib", "align.py"), file, L, A, lang === "es" ? "es" : "en"], { encoding: "utf8" });
+  const r = spawnSync("python", [path.join(ROOT, "engine", "lib", "align.py"), file, L, A, lang || "en"], { encoding: "utf8" });
   if (r.status !== 0) { fs.rmSync(tmp, { recursive: true, force: true }); return { pass: false, issues: [`dialogue check could not run: ${(r.stderr || "").slice(-200)}`] }; }
   const al = JSON.parse(fs.readFileSync(A, "utf8"));
   fs.rmSync(tmp, { recursive: true, force: true });
   const issues = [];
   for (const l of al.lines || []) if (l.found < 0.8) issues.push(`line ${l.id} missing or garbled (${Math.round(l.found * 100)}% heard)`);
-  const extras = (al.extras || []).filter((w) => w.replace(/[^a-z]/gi, "").length > 1 && !isNoise(w));
+  const extras = (al.extras || []).filter((w) => (w.replace(/[^\p{L}\p{N}]/gu, "").length > 1 || /\p{Script=Han}/u.test(w)) && !isNoise(w));
   if (extras.length > 2) issues.push(`${extras.length} words not in the script: ${extras.slice(0, 8).join(" ")}`);
   for (const w of (al.repeats || []).filter((x) => !isNoise(x))) issues.push(`repeated word "${w}"`);
   return { pass: !issues.length, issues, lines: (al.lines || []).map((l) => ({ id: l.id, start: l.start, end: l.end, found: l.found })) };

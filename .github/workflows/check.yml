@@ -28,3 +28,6 @@ jobs:
       - run: npm ci
       - name: Offline checks (no keys, no paid calls)
         run: npm test
+
+      - name: Local interfaces and Unicode alignment (mock services)
+        run: npm run test:local

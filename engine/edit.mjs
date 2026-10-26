@@ -83,7 +83,7 @@ const cutLen = dur(cut);
 // 2. Transcribe and align every script line.
 const lines = sl.shots.flatMap((s) => (s.dialogue || []).map((l, i) => ({ id: `${s.id}-${i + 1}`, text: l.text, l, shot: s })));
 fs.writeFileSync(path.join(tmp, "lines.json"), JSON.stringify(lines.map(({ id, text }) => ({ id, text }))));
-const al = spawnSync("python", [path.join(ROOT, "engine", "lib", "align.py"), cut, path.join(tmp, "lines.json"), path.join(tmp, "align.json"), sl.lang === "es" ? "es" : "en"], { encoding: "utf8" });
+const al = spawnSync("python", [path.join(ROOT, "engine", "lib", "align.py"), cut, path.join(tmp, "lines.json"), path.join(tmp, "align.json"), sl.lang || "en"], { encoding: "utf8" });
 if (al.status !== 0) { console.error(al.stderr.split("\n").filter((x) => !/warn|symlink|developer/i.test(x)).join("\n")); process.exit(1); }
 const align = JSON.parse(fs.readFileSync(path.join(tmp, "align.json"), "utf8"));
 lines.forEach((x, k) => Object.assign(x, align.lines[k]));
@@ -238,10 +238,10 @@ if (sl.voiceUnify === true || (sl.voiceUnify !== false && sl.format === "sitcom"
     // LIP-SYNC CHECK (re-voiced lines can land well after the lips move). The
     // original and the re-voiced tracks are both transcribed; if any word starts more than 0.2 s apart, the re-voice
     // is dropped and the take's own voices are kept: a voice that doesn't match the mouth is worse than another timbre.
-    const words = (f) => { const o = path.join(tmp, `sync-${path.basename(f)}.json`); const r = spawnSync("python", [path.join(ROOT, "engine", "lib", "align.py"), f, path.join(tmp, "lines.json"), o, sl.lang === "es" ? "es" : "en"], { encoding: "utf8" }); return r.status === 0 ? JSON.parse(fs.readFileSync(o, "utf8")).words : null; };
+    const words = (f) => { const o = path.join(tmp, `sync-${path.basename(f)}.json`); const r = spawnSync("python", [path.join(ROOT, "engine", "lib", "align.py"), f, path.join(tmp, "lines.json"), o, sl.lang || "en"], { encoding: "utf8" }); return r.status === 0 ? JSON.parse(fs.readFileSync(o, "utf8")).words : null; };
     const wa = words(tight), wb = words(voiced);
     if (wa && wb) {
-      const norm = (w) => w.w.toLowerCase().replace(/[^a-z0-9']/g, "");
+      const norm = (w) => w.w.toLowerCase().replace(/[^\p{L}\p{N}']/gu, "");
       let drift = 0, j = 0;
       // A word missing from one track is skipped without consuming the rest (an unmatched "and" once hid a 1 s drift).
       for (const w of wa) { const k = wb.findIndex((x, i) => i >= j && norm(x) === norm(w)); if (k >= 0) { drift = Math.max(drift, Math.abs(wb[k].start - w.start)); j = k + 1; } }
@@ -270,7 +270,7 @@ fs.writeFileSync(path.join(tmp, "captions.ass"), `[Script Info]\nScriptType: v4.
 // trims, can run captions seconds off. A line the final pass can't find keeps the cut's time.
 function finalWords() {
   const out = path.join(tmp, "align-final.json");
-  const r = spawnSync("python", [path.join(ROOT, "engine", "lib", "align.py"), voiced, path.join(tmp, "lines.json"), out, sl.lang === "es" ? "es" : "en"], { encoding: "utf8" });
+  const r = spawnSync("python", [path.join(ROOT, "engine", "lib", "align.py"), voiced, path.join(tmp, "lines.json"), out, sl.lang || "en"], { encoding: "utf8" });
   return r.status === 0 ? JSON.parse(fs.readFileSync(out, "utf8")) : null;
 }
 // A line stays from its first word until just after its last, never over the next line; lines longer than 6 words
@@ -436,5 +436,5 @@ if (draft) fs.writeFileSync(path.join(dir, "out", "draft-qc.json"), JSON.stringi
 if (!partial) P.saveShotlist(slug, sl);
 const size = fs.statSync(path.join(dir, final)).size;
 console.log(path.join(dir, final));
-console.log(`${(size / 1e6).toFixed(1)} MB · ${pacing.length}s (trimmed ${pacing.trimmed}s of air) · ${pacing.wpm} wpm · ${laughs.length} laughs · first at ${pacing.firstLaugh}s · ${loud} LUFS · peak ${peak} dB`);
+console.log(`${(size / 1e6).toFixed(1)} MB 路 ${pacing.length}s (trimmed ${pacing.trimmed}s of air) 路 ${pacing.wpm} wpm 路 ${laughs.length} laughs 路 first at ${pacing.firstLaugh}s 路 ${loud} LUFS 路 peak ${peak} dB`);
 console.log(problems.length ? `FINAL QC FAIL: ${problems.join(" | ")}` : "final QC: pass");
