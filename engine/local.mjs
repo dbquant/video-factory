@@ -18,6 +18,7 @@ try {
     console.log(JSON.stringify(await collect(args[0]), null, 2));
   } else if (command === "tts") {
     if (args.length !== 2) throw new Error("Provide a UTF-8 text file and output.wav");
+    if (fs.existsSync(args[1])) throw new Error("Output already exists; choose another filename");
     const c = settings("VF_TTS");
     if (!c.model) throw new Error("Missing VF_TTS_MODEL");
     if (path.extname(args[1]).toLowerCase() !== ".wav") throw new Error("Local TTS output must be .wav");

@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
 import http from "node:http";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+const exec = promisify(execFile);
 import { chat } from "../engine/lib/local-http.mjs";
 import { bindWorkflow, submit, collect } from "../engine/lib/comfy-local.mjs";
 const seen = [];
@@ -10,6 +16,10 @@ const server = http.createServer(async (req, res) => {
   seen.push({ url: req.url, body: body ? JSON.parse(body) : null, auth: req.headers.authorization });
   res.setHeader("Content-Type", "application/json");
   if (mode === "http-error") { res.writeHead(401); res.end('{"secret":"never print this"}'); return; }
+  if (req.url === "/v1/audio/speech") {
+    const wav = Buffer.alloc(44); wav.write("RIFF"); wav.write("WAVE", 8);
+    res.setHeader("Content-Type", "audio/wav"); res.end(wav); return;
+  }
   if (req.url === "/v1/chat/completions") res.end(JSON.stringify({ choices: [{ message: { content: "你好" } }] }));
   else if (req.url === "/prompt") res.end(JSON.stringify({ prompt_id: "job1", node_errors: {} }));
   else res.end(JSON.stringify(mode === "pending" ? {} : { job1: { status: { completed: true, status_str: mode === "failed" ? "error" : "success" }, outputs: { 9: { images: [{ filename: "a b.png", type: "output", subfolder: "中文" }] } } } }));
@@ -36,6 +46,19 @@ try {
   const files = await collect("job1", { pollMs: 1, timeoutMs: 500 });
   assert.equal(new URL(files[0].url).searchParams.get("filename"), "a b.png");
   assert.equal(new URL(files[0].url).searchParams.get("subfolder"), "中文");
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "vf-local-"));
+  try {
+    const source = path.join(tmp, "text.txt"), output = path.join(tmp, "speech.wav");
+    fs.writeFileSync(source, "你好");
+    const env = { ...process.env, VF_TTS_BASE_URL: base + "/v1/", VF_TTS_MODEL: "tts-test", VF_TTS_VOICE: "test-voice" };
+    await exec(process.execPath, ["engine/local.mjs", "tts", source, output], { env });
+    assert.equal(fs.readFileSync(output).toString("ascii", 8, 12), "WAVE");
+    assert.equal(seen.find(r => r.url === "/v1/audio/speech").body.input, "你好");
+    await assert.rejects(exec(process.execPath, ["engine/local.mjs", "tts", source, output], { env }));
+    assert.equal(seen.filter(r => r.url === "/v1/audio/speech").length, 1);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
   mode = "failed";
   await assert.rejects(collect("job1"), /generation failed/);
   mode = "pending";
