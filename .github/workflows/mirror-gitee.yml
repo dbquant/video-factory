@@ -1,0 +1,44 @@
+name: mirror to gitee
+
+on:
+  push:
+    branches: ['**']
+    tags: ['**']
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror-gitee
+  cancel-in-progress: true
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch every GitHub branch and tag
+        run: |
+          git fetch origin '+refs/heads/*:refs/remotes/origin/*' --prune --tags
+
+      - name: Configure Gitee credential
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: |
+          test -n "$GITEE_TOKEN"
+          umask 077
+          printf 'machine gitee.com\nlogin dbquant\npassword %s\n' "$GITEE_TOKEN" > "$HOME/.netrc"
+
+      - name: Mirror branches and tags
+        run: |
+          git remote add gitee https://gitee.com/dbquant/video-factory.git
+          git push --force --prune gitee 'refs/remotes/origin/*:refs/heads/*'
+          git push --force --prune gitee 'refs/tags/*:refs/tags/*'
