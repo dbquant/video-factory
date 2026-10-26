@@ -40,3 +40,5 @@ node engine/local.mjs comfy-collect <返回的prompt-id>
 ## 上游同步
 
 origin 为个人 Fork，upstream 为原仓库。main 保留上游，local-models 为长期集成分支；功能分支通过 PR 合并到 local-models。上游更新先同步 main，再将 main 合并进适配分支并运行两组测试，不用强制重置覆盖本地改动。
+
+GitHub 是开发源，Gitee `dbquant/video-factory` 是国内部署镜像。`.github/workflows/mirror-gitee.yml` 在 GitHub 的任意分支或标签变化后，将所有 GitHub 分支和标签强制同步到 Gitee。工作流使用仓库 Secret `GITEE_TOKEN`；令牌不得写入代码、日志或文档。Gitee 上的同名分支和标签会以 GitHub 为准，不在镜像仓库直接开发。
