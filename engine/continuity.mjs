@@ -160,7 +160,7 @@ async function evalTake(sc, ci) {
   const tmpL = path.join(dir, "out", `_lines-${sc.id}.json`), tmpA = path.join(dir, "out", `_align-${sc.id}.json`);
   fs.mkdirSync(path.dirname(tmpL), { recursive: true });
   fs.writeFileSync(tmpL, JSON.stringify(sLines));
-  const ar = spawnSync("python", [path.join(ROOT, "engine", "lib", "align.py"), file, tmpL, tmpA, sl.lang === "es" ? "es" : "en"], { encoding: "utf8" });
+  const ar = spawnSync("python", [path.join(ROOT, "engine", "lib", "align.py"), file, tmpL, tmpA, sl.lang || "en"], { encoding: "utf8" });
   if (ar.status === 0) {
     const al = JSON.parse(fs.readFileSync(tmpA, "utf8"));
     for (const l of al.lines) if (l.found < 0.8) issues.push(`${sc.id} dialogue: line ${l.id} missing or garbled (${Math.round(l.found * 100)}% of its words heard)`);

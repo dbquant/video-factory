@@ -9,12 +9,13 @@ import json
 import re
 import sys
 from difflib import SequenceMatcher
+from alignment_text import normalize as norm, tokens, timed_tokens
 
 from faster_whisper import WhisperModel
 
 media, lines_path, out_path = sys.argv[1], sys.argv[2], sys.argv[3]
 lang = sys.argv[4] if len(sys.argv) > 4 else "en"
-norm = lambda w: re.sub(r"[^a-z0-9]", "", w.lower().replace("gonna", "going"))
+
 
 model = WhisperModel("small", device="cpu", compute_type="int8")
 # VAD: without it the first word of a line after a silence or a sound effect is stamped at the start of the
@@ -37,14 +38,15 @@ script_text = " ".join(norm(t) for l in lines for t in l["text"].split())
 spelled = []
 for w in words:
     n = norm(w["w"])
-    if n.isdigit() and int(n) < 1000000 and n not in script_text.split():
+    if lang == "en" and n.isascii() and n.isdigit() and int(n) < 1000000 and n not in script_text.split():
         spelled += [{**w, "w": part} for part in spell(int(n))]
     else:
         spelled.append(w)
-words = spelled
+original_words = spelled
+words = timed_tokens(spelled)
 script_tokens, owner = [], []
 for i, l in enumerate(lines):
-    for t in l["text"].split():
+    for t in tokens(l["text"]):
         n = norm(t)
         if n:
             script_tokens.append(n)
@@ -68,7 +70,9 @@ matched = set()
 for a, b, size in SequenceMatcher(None, script_tokens, heard, autojunk=False).get_matching_blocks():
     matched.update(range(b, b + size))
 extras = [words[i]["w"] for i in range(len(words)) if i not in matched and heard[i]]
-repeats = [words[i]["w"] for i in range(1, len(words)) if heard[i] and heard[i] == heard[i - 1]]
+repeats = [original_words[i]["w"] for i in range(1, len(original_words))
+           if norm(original_words[i]["w"]) and norm(original_words[i]["w"]) == norm(original_words[i - 1]["w"])
+           and norm(original_words[i]["w"]) not in script_text]
 out = {"words": words, "lines": [], "extras": extras, "repeats": repeats}
 for l, (st, en, got, tot) in zip(lines, span):
     out["lines"].append({"id": l["id"], "start": st, "end": en, "found": round(got / max(1, tot), 2)})

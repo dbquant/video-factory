@@ -1,0 +1,14 @@
+{
+  "prompt": [
+    [
+      "5",
+      "prompt"
+    ]
+  ],
+  "seed": [
+    [
+      "8",
+      "noise_seed"
+    ]
+  ]
+}

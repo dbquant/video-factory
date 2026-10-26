@@ -2,6 +2,8 @@
 // APIMart first (the main provider; OpenAI-style chat), Kie's Claude endpoint second.
 import { env, hasApimart, hasKie } from "./env.mjs";
 
+import { chat } from "./local-http.mjs";
+
 export const JUDGE = "claude-sonnet-5-5";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -31,6 +33,7 @@ async function viaKie(model, content, maxTokens) {
 }
 
 export async function judge(content, { maxTokens = 3000 } = {}) {
+  if (env("VF_JUDGE_BASE_URL")) return chat([{ role: "user", content: toOpenAI(content) }], { prefix: "VF_JUDGE", maxTokens });
   const tries = [];
   if (hasApimart()) tries.push(["apimart", JUDGE], ["apimart", "claude-haiku-5-5"]);
   // Kie's Claude endpoint returns transient "Internal error"s: two tries per model, a pause between.

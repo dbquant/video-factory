@@ -53,7 +53,7 @@ const commands = {
     F.assertV5(sl);
     const file = flag("--file");
     if (!file || !fs.existsSync(file)) throw new F.FlowStop("reference <slug> --file <reference video>");
-    const p = REF.profile(file, { lang: sl.lang === "es" ? "es" : "en" });
+    const p = REF.profile(file, { lang: sl.lang || "en" });
     P.writeJSON(path.join(P.projectDir(slug), "launch", "reference.json"), { ...p, at: now() });
     console.log(JSON.stringify(p, null, 1));
   },
@@ -305,7 +305,7 @@ async function takeVoice(plan, lines, V) {
     P.ledger(slug, { ok: true, label: `narration take ${k}`, model: "elevenlabs-direct", credits: 0, chars: text.length, files: [P.rel(slug, take)] });
   }
   const norm = (w) => w.toLowerCase().replace(/[^\p{L}\p{N}']/gu, "");
-  const heard = REF.words(take, L.read(slug, "concepts")?.config?.language === "es" ? "es" : "en").map((w) => ({ ...w, n: norm(w.w) })).filter((w) => w.n);
+  const heard = REF.words(take, L.read(slug, "concepts")?.config?.language || "en").map((w) => ({ ...w, n: norm(w.w) })).filter((w) => w.n);
   // Whisper splits compound brand names ("Brandname" heard as "Brand name"): two adjacent heard words that join into a
   // script word, when neither is one on its own, count as that one word.
   const vocab = new Set(lines.flatMap((s) => s.vo.split(/\s+/).map(norm).filter(Boolean)));
@@ -376,7 +376,7 @@ async function takeVoice(plan, lines, V) {
 async function importVoice(plan, lines, from) {
   const file = P.abs(slug, from);
   if (!fs.existsSync(file)) throw new F.FlowStop(`the recording ${from} doesn't exist`);
-  const r = spawnSync("python", [path.join(ROOT, "engine", "lib", "words.py"), file, L.read(slug, "concepts")?.config?.language === "es" ? "es" : "en"], { encoding: "utf8", maxBuffer: 1 << 24 });
+  const r = spawnSync("python", [path.join(ROOT, "engine", "lib", "words.py"), file, L.read(slug, "concepts")?.config?.language || "en"], { encoding: "utf8", maxBuffer: 1 << 24 });
   if (r.status !== 0) throw new Error(`words.py: ${(r.stderr || "").slice(-200)}`);
   const norm = (w) => w.toLowerCase().replace(/[^\p{L}\p{N}']/gu, "");
   const words = JSON.parse(r.stdout).map((w) => ({ ...w, n: norm(w.w) })).filter((w) => w.n);
